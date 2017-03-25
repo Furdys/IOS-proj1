@@ -1,24 +1,27 @@
 #!/bin/sh
 
-echo "=================================="
+# [IOS] Project 1 - Directory graph
+# Author: Jiri Furda (xfurda00)
 
+
+# --- Shell settings ---
+LC_ALL=en_US.UTF-8
 POSIXLY_CORRECT=yes
+
+
+# --- Variables ---
 HELP=0
 N=0
 
+
 # --- Processing flags ---
-while getopts :i:n o # netusim co dela dvojtecka na zacatku
+while getopts :i:n o
 do	case "$o" in
 		i) FILE_ERE="$OPTARG";;
 		n) N=1;;
 		*) HELP=1;;
 	esac
 done
-
-
-#echo "[DBG] FILE_ERE=$FILE_ERE"
-#echo "[DBG] OPTIND=$OPTIND"
-#echo "[DBG] #=$#"
 
 
 # --- Processing target directory ---
@@ -36,11 +39,13 @@ else
 	fi
 fi
 
+
 # --- Returning help ---
 if [ "$HELP" -eq 1 ]; then
 	echo "NAPOVEDA"
 	exit 0
 fi
+
 
 # --- Normalization (-n FLAG) ---
 if [ "$N" -eq 1 ]; then
@@ -51,15 +56,14 @@ if [ "$N" -eq 1 ]; then
 	fi
 fi
 
-#echo "[DBG] DIR=$DIR"
 
-#ND=$(find $DIR -type d | wc -l)
-#NF=$(find $DIR -type f | wc -l) # Jsou to normalni soubory?
+# --- Printing head of result ---
+echo "Root directory: $DIR"
+printf "Directories: %d\n" $(find $DIR -type d | wc -l)
 
-find $DIR -type f -not -regex "$FILE_ERE"  -exec du -b {} + | awk -v maxcol="$N" '
-BEGIN{
-types = 0;
-}
+
+# --- File size histogram ---
+find $DIR -type f -not -regex "$FILE_ERE"  -exec du -b {} + | awk -v gmax="$N" '
 {
 	if($1 < 100)
 		size[0]++;
@@ -79,88 +83,65 @@ types = 0;
 		size[7]++;
 	else
 		size[8]++;
-
-
-	"file -b "$2 | getline finfo;
-
-	if(length(finfo) > 40)
-		finfo = substr(finfo, 0, 40)"...";
-
-	typefound = 0;
-	
-	for(i = 0; i < types; i++)
-	{
-		if(finfo == typetext[i])
-		{
-			typecount[i]++;
-			typefound = 1;
-			break;
-		}
-	}
-	
-	if(typefound == 0)
-	{
-		typetext[types] = finfo;
-		typecount[types] = 1;
-		types++;
-	}
-
 }
 END{
-# --- File size histogram ---
-prefix[0] = "<100 B";
-prefix[1] = "<1 KiB";
-prefix[2] = "<10 KiB";
-prefix[3] = "<100 KiB";
-prefix[4] = "<1 MiB";
-prefix[5] = "<10 Mib";
-prefix[6] = "<100 Mib";
-prefix[7] = "<1 GiB";
-prefix[8] = ">= 1 GiB";
+	print "All files: "NR;
 
-if(gmax != 0)
-	gmax = maxcol-13;
+	prefix[0] = "<100 B";
+	prefix[1] = "<1 KiB";
+	prefix[2] = "<10 KiB";
+	prefix[3] = "<100 KiB";
+	prefix[4] = "<1 MiB";
+	prefix[5] = "<10 Mib";
+	prefix[6] = "<100 Mib";
+	prefix[7] = "<1 GiB";
+	prefix[8] = ">= 1 GiB";
 
-print " File size histogram:"
-for(i = 0; i < 9; i++)
-{
-	if(gmax == 0 || size[i] < gmax)
-		max = size[i];
-	else
-		max = gmax;
+	if(gmax != 0)
+		gmax -= 13; # Asi osetrit
 
-	printf "  %-8s: ",prefix[i];
-
-	for (j = 0; j < max; j++)
+	print "File size histogram:"
+	for(i = 0; i < 9; i++)
 	{
-		printf "#";
+		if(gmax == 0 || size[i] < gmax)
+			max = size[i];
+		else
+			max = gmax;
+
+		printf "  %-8s: ",prefix[i];
+
+		for (j = 0; j < max; j++)
+		{
+			printf "#";
+		}
+		printf "\n";
 	}
-	printf "\n";
-}
+}'
 
 # --- File type histogram ---
-if(gmax != 0)
-	gmax = maxcol-47;
-
-print " File type histogram:"
-for(i = 0; i < types; i++)
+find $DIR -type f -not -regex "$FILE_ERE" -exec file -b {} \; | cut -c -40 | sort | uniq -c | sort -n -r | awk -v gmax="$N" '
+BEGIN{
+	if(gmax != 0)
+		gmax -= 48;
+	
+	print "File type histogram:"	
+}
 {
-	if(gmax == 0 || typecount[i] < gmax)
-		max = typecount[i];
+	count = $1;
+	$1 = ""; 
+
+	if(gmax == 0 || count < gmax)
+		max = count;
 	else
 		max = gmax;
-
-	printf "  %-43s: ",typetext[i];
+	if(length($0) < 41)
+		printf " %-44s: ",$0;
+	else
+		printf " %s...: ",$0;
 
 	for(j = 0; j < max; j++)
 	{
 		printf "#";
 	}
 	printf "\n";
-}
-
 }'
-
-echo "=====RESULT====="
-echo "Root directory: $DIR" echo 
-"Directories: $ND" echo "All files: $NF"
