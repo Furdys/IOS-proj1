@@ -3,7 +3,8 @@
 echo "=================================="
 
 POSIXLY_CORRECT=yes
-help=0
+HELP=0
+N=0
 
 # --- Processing flags ---
 while getopts :i:n o # netusim co dela dvojtecka na zacatku
@@ -36,28 +37,28 @@ else
 fi
 
 # --- Returning help ---
-if [ "$help" -eq 1 ]; then
+if [ "$HELP" -eq 1 ]; then
 	echo "NAPOVEDA"
 	exit 0
 fi
 
 # --- Normalization (-n FLAG) ---
-#if [ $N -eq 1 ]; then
-#	if [ -t 1 ]; then
-#		N=tput cols
-#		((N=N-13))
-#	else
-#		N=67
-#	echo "[DBG] N=$N"
-#fi
+if [ "$N" -eq 1 ]; then
+	if [ -t 1 ]; then
+		N=$(tput cols) # Proc se to musi takhle?
+		((N=$N-13))
+	else
+		N=67
+	fi
+fi
 
 #echo "[DBG] DIR=$DIR"
 
 #ND=$(find $DIR -type d | wc -l)
 #NF=$(find $DIR -type f | wc -l) # Jsou to normalni soubory?
+echo $N 
 
-
-find $DIR -type f -not -regex "$FILE_ERE"  -exec du -b {} + | awk '
+find $DIR -type f -not -regex "$FILE_ERE"  -exec du -b {} + | awk -v gmax="$N" '
 {
 	if($1 < 100)
 		size[0]++;
@@ -79,20 +80,25 @@ find $DIR -type f -not -regex "$FILE_ERE"  -exec du -b {} + | awk '
 		size[8]++;
 }
 END{
-prefix[0] = "<100 B  "
-prefix[1] = "<1 KiB  "
-prefix[2] = "<10 KiB "
-prefix[3] = "<100 KiB"
-prefix[4] = "<1 MiB  "
-prefix[5] = "<10 Mib "
-prefix[6] = "<100 Mib"
-prefix[7] = "<1 GiB  "
-prefix[8] = ">= 1 GiB"
+prefix[0] = "<100 B  ";
+prefix[1] = "<1 KiB  ";
+prefix[2] = "<10 KiB ";
+prefix[3] = "<100 KiB";
+prefix[4] = "<1 MiB  ";
+prefix[5] = "<10 Mib ";
+prefix[6] = "<100 Mib";
+prefix[7] = "<1 GiB  ";
+prefix[8] = ">= 1 GiB";
 
 for (i = 0; i < 9; i++)
 {
+	if(gmax == 0 || size[i] < gmax)
+		max = size[i];
+	else
+		max = gmax;
+
 	printf "  %s: ",prefix[i];
-	for (j = 0; j < size[i]; j++)
+	for (j = 0; j < max; j++)
 	{
 		printf "#";
 	}
