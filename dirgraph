@@ -46,9 +46,8 @@ fi
 if [ "$N" -eq 1 ]; then
 	if [ -t 1 ]; then
 		N=$(tput cols) # Proc se to musi takhle?
-		((N=$N-13))
 	else
-		N=67
+		N=80
 	fi
 fi
 
@@ -56,9 +55,11 @@ fi
 
 #ND=$(find $DIR -type d | wc -l)
 #NF=$(find $DIR -type f | wc -l) # Jsou to normalni soubory?
-echo $N 
 
-find $DIR -type f -not -regex "$FILE_ERE"  -exec du -b {} + | awk -v gmax="$N" '
+find $DIR -type f -not -regex "$FILE_ERE"  -exec du -b {} + | awk -v maxcol="$N" '
+BEGIN{
+types = 0;
+}
 {
 	if($1 < 100)
 		size[0]++;
@@ -78,27 +79,80 @@ find $DIR -type f -not -regex "$FILE_ERE"  -exec du -b {} + | awk -v gmax="$N" '
 		size[7]++;
 	else
 		size[8]++;
+
+
+	"file -b "$2 | getline finfo;
+
+	if(length(finfo) > 40)
+		finfo = substr(finfo, 0, 40)"...";
+
+	typefound = 0;
+	
+	for(i = 0; i < types; i++)
+	{
+		if(finfo == typetext[i])
+		{
+			typecount[i]++;
+			typefound = 1;
+			break;
+		}
+	}
+	
+	if(typefound == 0)
+	{
+		typetext[types] = finfo;
+		typecount[types] = 1;
+		types++;
+	}
+
 }
 END{
-prefix[0] = "<100 B  ";
-prefix[1] = "<1 KiB  ";
-prefix[2] = "<10 KiB ";
+# --- File size histogram ---
+prefix[0] = "<100 B";
+prefix[1] = "<1 KiB";
+prefix[2] = "<10 KiB";
 prefix[3] = "<100 KiB";
-prefix[4] = "<1 MiB  ";
-prefix[5] = "<10 Mib ";
+prefix[4] = "<1 MiB";
+prefix[5] = "<10 Mib";
 prefix[6] = "<100 Mib";
-prefix[7] = "<1 GiB  ";
+prefix[7] = "<1 GiB";
 prefix[8] = ">= 1 GiB";
 
-for (i = 0; i < 9; i++)
+if(gmax != 0)
+	gmax = maxcol-13;
+
+print " File size histogram:"
+for(i = 0; i < 9; i++)
 {
 	if(gmax == 0 || size[i] < gmax)
 		max = size[i];
 	else
 		max = gmax;
 
-	printf "  %s: ",prefix[i];
+	printf "  %-8s: ",prefix[i];
+
 	for (j = 0; j < max; j++)
+	{
+		printf "#";
+	}
+	printf "\n";
+}
+
+# --- File type histogram ---
+if(gmax != 0)
+	gmax = maxcol-47;
+
+print " File type histogram:"
+for(i = 0; i < types; i++)
+{
+	if(gmax == 0 || typecount[i] < gmax)
+		max = typecount[i];
+	else
+		max = gmax;
+
+	printf "  %-43s: ",typetext[i];
+
+	for(j = 0; j < max; j++)
 	{
 		printf "#";
 	}
@@ -108,8 +162,5 @@ for (i = 0; i < 9; i++)
 }'
 
 echo "=====RESULT====="
-echo "Root directory: $DIR"
-echo "Directories: $ND"
-echo "All files: $NF"
-echo "File size histogram:"
-echo "File type histogram:"
+echo "Root directory: $DIR" echo 
+"Directories: $ND" echo "All files: $NF"
