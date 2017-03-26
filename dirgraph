@@ -17,7 +17,7 @@ N=0
 # --- Processing flags ---
 while getopts :i:n o
 do	case "$o" in
-		i) FILE_ERE="${-not -regex $OPTARG}";;
+		i) FILE_ERE="-not -regex $OPTARG";;
 		n) N=1;;
 		*) HELP=1;;
 	esac
@@ -73,7 +73,9 @@ echo "Root directory: $DIR"
 printf "Directories: %d\n" $(find $DIR -type d | wc -l)
 
 
-# --- File size histogram --- -iname "$FILE_ERE", mozna jestli du nepotrebuje -b na merlinovi
+echo $FILE_ERE
+
+# --- File size histogram ---
 find "$DIR" -type f $FILE_ERE -exec wc -c {} + | awk -v gmax="$N" '
 {
 	if($2 != "total")
@@ -97,7 +99,11 @@ find "$DIR" -type f $FILE_ERE -exec wc -c {} + | awk -v gmax="$N" '
 			size[8]++;
 }
 END{
-	print "All files: "NR-1;
+	files = NR;
+	if(files > 1)
+		files--;
+
+	print "All files: "files;
 
 	prefix[0] = "<100 B";
 	prefix[1] = "<1 KiB";
