@@ -33,7 +33,6 @@ else
 		shift $(($OPTIND - 1))	
 		DIR="$*"
 	else
-		((OPTIND--))
 		if [ $(($OPTIND - 1)) -eq "$ARGC" ]; then
 			DIR=.
 		else
@@ -129,7 +128,7 @@ END{
 
 	if(maxcol != 0)
 	{
-		maxcol -= 13; # Asi osetrit
+		maxhashcol = maxcol-13; # Asi osetrit
         	for(i = 0; i < 9; i++)
         	{ 
                 	if(size[i] > maxsize)
@@ -141,10 +140,10 @@ END{
 	print "File size histogram:"
 	for(i = 0; i < 9; i++)
 	{
-		if(maxcol == 0)
+		if(maxcol == 0 || maxsize <= maxhashcol)
 			max = size[i];
 		else
-			max = size[i] * maxcol / maxsize;
+			max = size[i] * maxhashcol / maxsize;
 
 		printf "  %-8s: ",prefix[i];
 
@@ -157,96 +156,49 @@ END{
 }'
 
 # --- File type histogram ---
-find "$DIR" -type f -exec file -F "//" {} \; | awk -F"// " -v ignore="$FILE_ERE" -v maxcol="$N" '
-BEGIN{
-	if(gmax != 0)
-		gmax -= 48;
-        if(maxcol != 0)
-                maxcol -= 48; # Asi osetrit
-
-	types = 0;
-	
-	print "File type histogram:"	
-}
+find "$DIR" -type f -exec file -F "//" {} \; | awk -F"// " -v ignore="$FILE_ERE" '
 {
 	# --- Ignore flag (-i) ---
 	if(ignore != "")
 	{
-		$1 = "";
 		split($1,path,"/")
 		for(i in path)
 		{
-			matchres = match(path[i],ignore);
-			#print path[i]"=="ignore"? "matchres;
-			if(matchres == 1)
+			if(match(path[i],ignore) == 1)
 				next;
 		}
 	}
 	
 	# --- Shortening file info ---
-	if(length(finfo) > 40)
-		$2 = substr($2, 0, 40)"...";
+	if(length($2) > 40)
+	$2 = substr($2, 0, 40)"...";
 	
-	# --- Searching for same file type ---
-	for(i = 0; i < types; i++)
-	{
-		if($2 == typetext[i])
-		{
-			typecount[i]++;
-			next;
-		}
-	}
+	print $2;
+}' | sort | uniq -c | sort -n -r | head -n 10 | awk -v maxcol="$N" '
+BEGIN{		
+	if(maxcol != 0)
+		maxhashcol = maxcol-48; # Asi osetrit
 	
-	# --- Found new file type ---
-	typetext[types] = $2;
-	typecount[types] = 1;
-	types++;
+	print "File type histogram:"	
 }
-END{
-	# --- Searching for top 10 ---
-	asort(typecount);
-	#asort(typecount, stypecount);
+{ 
+	if(NR==1)
+		maxtype = $1;
+	if(maxcol == 0 || maxtype <= maxhashcol)
+		max = $1;
+	else
+		max = $1 * maxhashcol / maxtype;
+
+	$1 = ""
+
+	printf " %-44s: ",$0;
 	
-	for(i = 1; i < 11; i++)
+	for(j = 0; j < max; j++)
 	{
-		targetcount = stypecount[types-i];
-		
-		for(j = 0; j < types; j++)
-		{
-			if(typecount[j] == targetcount)
-			{
-				stypetext[i-1] = typetext[i];
-				typecount[j] = 0;
-			}
-		}
-		print stypetext[i-1]": "stypecount[types-i];		
+		printf "#";
 	}
- 
-#  print "TYPES:"types;
-}'	
-#	count = $1;
-#	$1 = ""; 
-
-
-#	if(NR==1)
-#		maxtype = count;
-
-#	if(maxcol == 0)
-#		max = count;
-#	else
-#		max = count * maxcol / maxtype;
-
-
-#	if(length($0) < 41)
-#		printf " %-44s: ",$0;
-#	else
-#		printf " %s...: ",$0;
-
-#	for(j = 0; j < max; j++)
-#	{
-#		printf "#";
-#	}
-#	printf "\n";
+	printf "\n";
+}'
 
 
 exit 0
