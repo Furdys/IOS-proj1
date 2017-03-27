@@ -69,11 +69,28 @@ fi
 
 # --- Printing head of result ---
 echo "Root directory: $DIR"
-printf "Directories: %d\n" $(find $DIR -type d | wc -l)
+printf "Directories: %d\n" $(find $DIR -type d | awk -v ignore="$FILE_ERE" '
+{
+	# --- Ignore flag (-i) ---
+	if(ignore != "")
+	{
+		split($0,path,"/")
+		for(i in path)
+		{
+			if(match(path[i],ignore) == 1)
+				next;
+		}
+	}
+	print $0;
+}
+' | wc -l)
 
 
 # --- File size histogram ---
 find "$DIR" -type f -exec wc -c {} + | awk -v ignore="$FILE_ERE" -v maxcol="$N" '
+BEGIN{
+	totalfiles = 0;
+}
 {
 	if($2 != "total")
 	{
