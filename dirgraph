@@ -73,12 +73,11 @@ echo "Root directory: $DIR"
 printf "Directories: %d\n" $(find $DIR -type d | wc -l)
 
 
-echo $FILE_ERE
-
 # --- File size histogram ---
-find "$DIR" -type f $FILE_ERE -exec wc -c {} + | awk -v gmax="$N" '
+find "$DIR" -type f $FILE_ERE -exec wc -c {} + | awk -v maxcol="$N" '
 {
 	if($2 != "total")
+	{
 		if($1 < 100)
 			size[0]++;
 		else if($1 < 1024)
@@ -97,6 +96,7 @@ find "$DIR" -type f $FILE_ERE -exec wc -c {} + | awk -v gmax="$N" '
 			size[7]++;
 		else
 			size[8]++;
+	}
 }
 END{
 	files = NR;
@@ -115,16 +115,24 @@ END{
 	prefix[7] = "<1 GiB";
 	prefix[8] = ">=1 GiB";
 
-	if(gmax != 0)
-		gmax -= 13; # Asi osetrit
+	if(maxcol != 0)
+	{
+		maxcol -= 13; # Asi osetrit
+        	for(i = 0; i < 9; i++)
+        	{ 
+                	if(size[i] > maxsize)
+                        	maxsize	= size[i];
+        	}
+
+	}
 
 	print "File size histogram:"
 	for(i = 0; i < 9; i++)
 	{
-		if(gmax == 0 || size[i] < gmax)
+		if(maxcol == 0)
 			max = size[i];
 		else
-			max = gmax;
+			max = size[i] * maxcol / maxsize;
 
 		printf "  %-8s: ",prefix[i];
 
@@ -137,10 +145,13 @@ END{
 }'
 
 # --- File type histogram ---
-find "$DIR" -type f $FILE_ERE -exec file -b {} \; | cut -c -40 | sort | uniq -c | sort -n -r | awk -v gmax="$N" '
+find "$DIR" -type f $FILE_ERE -exec file -b {} \; | cut -c -40 | sort | uniq -c | sort -n -r | head -n 10 | awk -v maxcol="$N" '
 BEGIN{
 	if(gmax != 0)
 		gmax -= 48;
+        if(maxcol != 0)
+                maxcol -= 48; # Asi osetrit
+
 	
 	print "File type histogram:"	
 }
@@ -148,10 +159,16 @@ BEGIN{
 	count = $1;
 	$1 = ""; 
 
-	if(gmax == 0 || count < gmax)
+
+	if(NR==1)
+		maxtype = count;
+
+	if(maxcol == 0)
 		max = count;
 	else
-		max = gmax;
+		max = count * maxcol / maxtype;
+
+
 	if(length($0) < 41)
 		printf " %-44s: ",$0;
 	else
