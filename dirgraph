@@ -40,8 +40,6 @@ else
 		fi
 	fi
 fi
-DIR_FOLD=$(echo $DIR | tr -cd '/' | wc -c)
-DIR_FOLD=$((DIR_FOLD + 1))
 
 
 # --- Returning help ---
@@ -71,13 +69,13 @@ fi
 
 # --- Printing head of result ---
 echo "Root directory: $DIR"
-printf "Directories: %d\n" $(find $DIR -type d | awk -v dirfold="$DIR_FOLD" -v ignore="$FILE_ERE" '
+printf "Directories: %d\n" $(find $DIR -type d | awk -v ignore="$FILE_ERE" '
 {
 	# --- Ignore flag (-i) ---
 	if(ignore != "")
 	{
-		pathmax = split($0,path,"/");
-		for(i = dirfold; i <= pathmax; i++) # No idea why, but only <= works
+		split($0,path,"/")
+		for(i in path)
 		{
 			if(match(path[i],ignore) != 0)
 				next;
@@ -89,7 +87,7 @@ printf "Directories: %d\n" $(find $DIR -type d | awk -v dirfold="$DIR_FOLD" -v i
 
 
 # --- File size histogram ---
-find "$DIR" -type f -exec wc -c {} + | awk -v dirfold="$DIR_FOLD" -v ignore="$FILE_ERE" -v maxcol="$N" '
+find "$DIR" -type f -exec wc -c {} + | awk -v ignore="$FILE_ERE" -v maxcol="$N" '
 BEGIN{
 	totalfiles = 0;
 }
@@ -100,9 +98,8 @@ BEGIN{
 		if(ignore != "")
 		{
 			$1 = "";
-			pathmax = split($0,path,"/");
 			split($0,path,"/") # prvni bude asi s mezerou
-			for(i = dirfold; i < pathmax; i++)
+			for(i in path)
 			{
 				if(match(path[i],ignore) != 0)
 					next;
@@ -174,13 +171,13 @@ END{
 }'
 
 # --- File type histogram ---
-find "$DIR" -type f -exec file -F "//" {} \; | awk -F"// " -v dirfold="$DIR_FOLD" -v ignore="$FILE_ERE" '
+find "$DIR" -type f -exec file -F "//" {} \; | awk -F"// " -v ignore="$FILE_ERE" '
 {
 	# --- Ignore flag (-i) ---
 	if(ignore != "")
 	{
-		pathmax = split($1,path,"/");
-		for(i = dirfold; i < pathmax; i++)
+		split($1,path,"/")
+		for(i in path)
 		{
 			if(match(path[i],ignore) != 0)
 				next;
@@ -206,7 +203,9 @@ BEGIN{
 		max = $1;
 	else
 		max = $1 * maxhashcol / maxtype;
+
 	$1 = ""
+
 	printf " %-44s: ",$0;
 	
 	for(j = 0; j < max; j++)
